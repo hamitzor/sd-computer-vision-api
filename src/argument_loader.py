@@ -4,14 +4,8 @@ arguments = (
     ("-dbh", "--mongodb-host",  "MongoDB host"),
     ("-dbu", "--mongodb-user",  "MongoDB username"),
     ("-dbp", "--mongodb-password",  "MongoDB password"),
+    ("-id", "--video-id",  "id of the video that is going to be processed")
 )
-
-"""
-    ("-c", "--config",  "path to yolo config file"),
-    ("-w", "--weights",  "path to yolo weights file"),
-    ("-cl", "--classes",  "path to file containing class names"),
-    ("-id", "--video-id",  "id of the video that is going to be processed"),
-    """
 
 argparse = argparse.ArgumentParser()
 

@@ -1,0 +1,8 @@
+classes= 80
+train  = /home/pjreddie/yolov3/coco/trainvalno5k.txt
+valid  = coco_testdev
+#valid = yolov3/coco_val_5k.list
+names = yolov3/coco.names
+backup = /home/pjreddie/backup/
+eval=coco
+
