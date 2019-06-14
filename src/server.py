@@ -24,22 +24,25 @@ args = argparse.parse_args()
 
 db = DB(args.mongodb_user, args.mongodb_password, args.mongodb_host)
 
-old_percentage = 0
+old_percentage = -1
 
 
-@route('/detect-objects/<video_id:path>/<progress_endpoint:path>')
+@route('/start-object-detection/<video_id:path>/<progress_endpoint:path>')
 def detect_objects(video_id, progress_endpoint):
     response.content_type = 'application/json; charset=UTF-8'
+
+    if len(video_id) != 24:
+        return json.dumps({"status": "ERROR", "message": "Invalid video_id"})
 
     video = db.get_video(video_id)
 
     if not video:
-        return json.dumps({"status": "ERROR"})
+        return json.dumps({"status": "ERROR", "message": "Wrong video_id"})
 
     status = video["object_detection_status"]
 
     if status != "NOT_STARTED" and status != "ERROR":
-        return json.dumps({"status": "ERROR"})
+        return json.dumps({"status": "ERROR", "message": "This action is forbidden"})
 
     video_path = video["path"]
 
@@ -57,7 +60,6 @@ def detect_objects(video_id, progress_endpoint):
         global old_percentage
 
         if(old_percentage != percentage):
-            print(progress_endpoint + "/" + video_id + "/" + str(percentage))
             urlopen(progress_endpoint + "/" + video_id + "/" + str(percentage))
             db.update_video(video_id, {"object_detection_progress": percentage})
 

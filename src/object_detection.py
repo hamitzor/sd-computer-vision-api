@@ -179,6 +179,9 @@ def detect_objects_in_video(video_path, on_result, on_complete, on_error):
         cap = cv2.VideoCapture(video_path)
 
         frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+
+        on_result(0, [])
+
         while(cap.isOpened()):
             ret, frame = cap.read()
 
