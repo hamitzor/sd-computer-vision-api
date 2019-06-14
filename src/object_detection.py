@@ -1,14 +1,18 @@
-"""
-python3 src/yolo_opencv.py --mongodb-host localhost --mongodb-user sdadmin --mongodb-password root --video-id 5d0297d00135d368eb0da923
-"""
+
 from ctypes import *
 import math
 import random
 import cv2
 import numpy as np
-import argparse
-from argument_loader import args
-from db_operations import get_video, insert_detected_objects
+from os import path
+import traceback
+
+
+curr_file_dir = path.dirname(path.abspath(path.realpath(__file__)))
+
+
+def get_abs_path_as_bytes(file_path):
+    return bytes(path.abspath(path.join(curr_file_dir, file_path)), "ascii")
 
 
 def sample(probs):
@@ -56,7 +60,9 @@ class METADATA(Structure):
                 ("names", POINTER(c_char_p))]
 
 
-lib = CDLL("/home/hamit/projects/python/darknet/libdarknet.so", RTLD_GLOBAL)
+lib_path = get_abs_path_as_bytes("../yolov3/libdarknet.so")
+
+lib = CDLL(lib_path, RTLD_GLOBAL)
 lib.network_width.argtypes = [c_void_p]
 lib.network_width.restype = c_int
 lib.network_height.argtypes = [c_void_p]
@@ -151,7 +157,7 @@ def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45):
         for i in range(meta.classes):
             if dets[j].prob[i] > 0:
                 b = dets[j].bbox
-                res.append((meta.names[i], dets[j].prob[i], (b.x, b.y, b.w, b.h)))
+                res.append((i, dets[j].prob[i], (b.x, b.y, b.w, b.h)))
     res = sorted(res, key=lambda x: -x[1])
     if isinstance(image, bytes):
         free_image(im)
@@ -159,23 +165,41 @@ def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45):
     return res
 
 
-net = load_net(b"yolov3/yolov3.cfg", b"yolov3/yolov3.weights", 0)
+config_path = get_abs_path_as_bytes("../yolov3/yolov3.cfg")
+weigths_path = get_abs_path_as_bytes("../yolov3/yolov3.weights")
+data_path = get_abs_path_as_bytes("../yolov3/coco.data")
 
-meta = load_meta(b"yolov3/coco.data")
+net = load_net(config_path, weigths_path, 0)
 
-video_path = get_video(args.video_id)["path"]
+meta = load_meta(data_path)
 
-cap = cv2.VideoCapture(video_path)
 
-frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+def detect_objects_in_video(video_path, on_result, on_complete, on_error):
+    try:
+        cap = cv2.VideoCapture(video_path)
 
-while(cap.isOpened()):
-    ret, frame = cap.read()
-    frame_no = cap.get(cv2.CAP_PROP_POS_FRAMES)
-    r = detect(net, meta, frame)
-    print(r)
-    detected_objects = []
-    if len(detected_objects) > 0:
-        insert_detected_objects(detected_objects)
+        frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        while(cap.isOpened()):
+            ret, frame = cap.read()
 
-cap.release()
+            if not ret or frame is None:
+                break
+
+            frame_no = cap.get(cv2.CAP_PROP_POS_FRAMES)
+            result = detect(net, meta, frame)
+
+            percentage = int(frame_no/frame_count*100)
+
+            detected_objects = [{"class": o[0],
+                                 "confidence":round(o[1], 2),
+                                 "x":o[2][0],
+                                 "y":o[2][1],
+                                 "w":o[2][2],
+                                 "h":o[2][3],
+                                 "frame_no":int(frame_no)} for o in result]
+            on_result(percentage, detected_objects)
+
+        cap.release()
+        on_complete()
+    except:
+        on_error(traceback.format_exc())
