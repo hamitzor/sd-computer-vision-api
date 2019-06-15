@@ -1,2 +1,2 @@
 # sd-object-detection-module
-Object detection module for SceneDetection
+Object computer vision for SceneDetection
