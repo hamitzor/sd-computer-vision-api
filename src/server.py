@@ -31,18 +31,7 @@ old_percentage = -1
 def detect_objects(video_id, progress_endpoint):
     response.content_type = 'application/json; charset=UTF-8'
 
-    if len(video_id) != 24:
-        return json.dumps({"status": "ERROR", "message": "Invalid video_id"})
-
     video = db.get_video(video_id)
-
-    if not video:
-        return json.dumps({"status": "ERROR", "message": "Wrong video_id"})
-
-    status = video["object_detection_status"]
-
-    if status != "NOT_STARTED" and status != "ERROR":
-        return json.dumps({"status": "ERROR", "message": "This action is forbidden"})
 
     video_path = video["path"]
 
@@ -69,8 +58,8 @@ def detect_objects(video_id, progress_endpoint):
         db.update_video(video_id, {"object_detection_status": "COMPLETED"})
 
     thread = threading.Thread(target=detect_objects_in_video, args=(video_path, handle_result, handle_complete, handle_error))
-    thread.start()
     db.update_video(video_id, {"object_detection_status": "STARTED"})
+    thread.start()
 
     return json.dumps({"status": "OK"})
 
