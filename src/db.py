@@ -1,27 +1,51 @@
 from pymongo import MongoClient
-from bson.objectid import ObjectId
-import urllib.parse
-import datetime
+from urllib.parse import quote_plus
 
 
 class DB:
-    def __init__(self, user, password, host):
-        username = urllib.parse.quote_plus(user)
-        password = urllib.parse.quote_plus(password)
-        client = MongoClient("mongodb://%s:%s@%s" % (username, password, host), authSource='sd')
-        self._db = client["sd"]
+    def __init__(self):
+        self._connected = False
 
-    def get_video(self, id):
-        return self._db["videos"].find_one({'_id': ObjectId(id)})
+    def connect(self, host, user, password, name):
+        if self._connected:
+            raise ConnectionError("already connected")
 
-    def update_video(self, id, new_values):
-        return self._db["videos"].update_one({'_id': ObjectId(id)}, {"$set": new_values})
+        user = quote_plus(user)
+        password = quote_plus(password)
 
-    def delete_detected_objects(self, video_id):
-        return self._db["detected_objects"].delete_many({'video_id': video_id})
+        client = MongoClient("mongodb://%s:%s@%s" % (user, password, host), authSource=name)
+        self._db = client[name]
+        self._connected = True
 
-    def insert_detected_objects(self, detected_object_list):
-        return self._db["detected_objects"].insert_many(detected_object_list)
+    def find_one(self, col, query={}, fields=None):
+        return self._db[col].find_one(query, fields)
 
-    def insert_log(self, type, message):
-        return self._db["logs"].insert_one({"date": datetime.datetime.now(), "type": type, "message": message})
+    def find(self, col, query={}, fields=None):
+        return self._db[col].find(query, fields)
+
+    def insert_one(self, col, val):
+        res = self._db[col].insert_one(val)
+        return res.inserted_id
+
+    def insert_many(self, col, vals):
+        res = self._db[col].insert_many(vals)
+        return res.inserted_ids
+
+    def delete_one(self, col, query={}):
+        res = self._db[col].delete_one(query)
+        return res.deleted_count
+
+    def delete_many(self, col, query={}):
+        res = self._db[col].delete_many(query)
+        return res.deleted_count
+
+    def update_one(self, col, update, query={}):
+        res = self._db[col].update_one(query, update)
+        return res.modified_count
+
+    def update_many(self, col, update, query={}):
+        res = self._db[col].update_many(query, update)
+        return res.modified_count
+
+
+db = DB()

@@ -3,4 +3,4 @@ test_images
 yolov3/yolov3.weights
 yolov3/libdarknet.so
 *.pyc
-src/__pycache__
+**/__pycache__
