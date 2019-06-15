@@ -1,3 +1,4 @@
+#Even though this is a blocking event emmiter, it is just doing what is needed for now.
 class EventEmmiter:
     def __init__(self):
         self._listeners = {}
