@@ -16,7 +16,7 @@ class ObjectDetection:
         self._video_id = video_id
         self._progress_endpoint = progress_endpoint
 
-    def terminate_asap():
+    def terminate_asap(self):
         self._terminate_asap = True
 
     def _update_progress(self, progress):
