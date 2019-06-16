@@ -17,26 +17,40 @@ def index():
     return static_file("welcome.html", root=PUBLIC_DIR)
 
 
+@route("/terminate-object-detection/<operation_id:path>/<information_endpoint:path>")
+def terminate_object_detection_with_information(operation_id, information_endpoint):
+    return _terminate_object_detection(operation_id, information_endpoint)
+
+
 @route("/terminate-object-detection/<operation_id:path>")
-def terminate_object_detection(operation_id):
-    response.content_type = "application/json; charset=UTF-8"
-    event_emmiter.emit("TERMINATE_OBJECT_DETECTION", {"operation_id": operation_id})
-    return json.dumps({"status": "OK"})
+def terminate_object_detection_without_information(operation_id):
+    return _terminate_object_detection(operation_id)
 
 
 @route("/start-object-detection/<video_id:path>/<progress_endpoint:path>")
-def start_object_detection(video_id, progress_endpoint):
+def start_object_detection_with_progress(video_id, progress_endpoint):
+    return _start_object_detection(video_id, progress_endpoint)
+
+
+@route("/start-object-detection/<video_id:path>")
+def start_object_detection_without_progress(video_id):
+    return _start_object_detection(video_id)
+
+
+def _terminate_object_detection(operation_id, information_endpoint=None):
+    response.content_type = "application/json; charset=UTF-8"
+    event_emmiter.emit("TERMINATE_OBJECT_DETECTION", {"operation_id": operation_id, "information_endpoint": information_endpoint})
+    return json.dumps({"status": "OK"})
+
+
+def _start_object_detection(video_id, progress_endpoint=None):
     response.content_type = "application/json; charset=UTF-8"
 
     operation_id = str(uuid4())
 
-    object_detection = ObjectDetection(video_id, progress_endpoint)
+    print(video_id, progress_endpoint)
 
-    def termination_handler(data):
-        if data["operation_id"] == operation_id:
-            object_detection.terminate_asap()
-
-    event_emmiter.on("TERMINATE_OBJECT_DETECTION", termination_handler)
+    object_detection = ObjectDetection(operation_id, video_id, progress_endpoint)
 
     thread = threading.Thread(target=object_detection.detect)
 
