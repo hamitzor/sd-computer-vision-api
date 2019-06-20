@@ -8,7 +8,7 @@ def _now():
 
 
 def _log(message, type):
-    db.insert_one("logs", {"date": _now(), "type": type, "message": message})
+    db.insert_one("cv_logs", {"date": _now(), "type": type, "message": message})
 
 
 def log_error(message):

@@ -5,9 +5,10 @@ from db import db
 from bson.objectid import ObjectId
 from threading import Thread
 from logger import *
-from urllib.request import urlopen
 from event_emmiter import event_emmiter
 import sys
+from util import async_get_request
+from config_loader import config
 
 
 class TerminatedByUserError(Exception):
@@ -15,21 +16,24 @@ class TerminatedByUserError(Exception):
 
 
 class ObjectDetection:
-    def __init__(self, operation_id, video_id, progress_endpoint):
+    def __init__(self, operation_id, video_id):
         self._operation_id = operation_id
         self._terminate_asap = False
         self._video_id = video_id
-        self._progress_endpoint = progress_endpoint
+        self._progress_endpoint = "http://" + config["web-api"]["host"]+":"+str(config["web-api"]["port"]) + config["cv-api"]["endpoint"]["object-detection"]["feedback"]["progress-endpoint"]
+        self._termination_information_endpoint = "http://" + config["web-api"]["host"]+":"+str(config["web-api"]["port"]) + \
+            config["cv-api"]["endpoint"]["object-detection"]["feedback"]["termination-information-endpoint"]
+        self._video_dir = config["storage"]["video"]
 
     def _update_progress(self, progress):
         db.update_one("videos", {"$set": {"object_detection_progress": progress}}, {"_id": ObjectId(self._video_id)})
 
-        if not self._progress_endpoint is None:
-            Thread(target=lambda: urlopen(self._progress_endpoint + "/" + self._video_id + "/" + str(progress))).start()
+        if not self._progress_endpoint is "":
+            async_get_request(self._progress_endpoint + "/" + self._video_id + "/" + str(progress))
 
     def _inform_termination(self, status):
-        if not self._termination_information_endpoint is None:
-            Thread(target=lambda: urlopen(self._termination_information_endpoint + "/" + self._operation_id + "/" + status)).start()
+        if not self._termination_information_endpoint is "":
+            async_get_request(self._termination_information_endpoint + "/" + self._operation_id + "/" + status)
 
     def _update_status(self, status):
         db.update_one("videos", {"$set": {"object_detection_status": status}}, {"_id": ObjectId(self._video_id)})
@@ -38,13 +42,12 @@ class ObjectDetection:
         try:
             def termination_handler(data):
                 if data["operation_id"] == self._operation_id:
-                    self._termination_information_endpoint = data["information_endpoint"]
                     self._terminate_asap = True
 
             event_emmiter.on("TERMINATE_OBJECT_DETECTION", termination_handler)
 
             video = db.find_one("videos", {"_id": ObjectId(self._video_id)})
-            path = video["path"]
+            path = self._video_dir + "/" + video["name"]
 
             cap = cv2.VideoCapture(path)
 
@@ -93,7 +96,6 @@ class ObjectDetection:
             self._update_status("INTERRUPTED")
             log_error("Operation was terminated by user.")
         except:
-            print("Here.")
             db.delete_many("detected_objects", {"video_id": ObjectId(self._video_id)})
             self._update_status("ERROR")
             log_error(traceback.format_exc())
