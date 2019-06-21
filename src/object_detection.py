@@ -8,11 +8,18 @@ from logger import *
 from event_emmiter import event_emmiter
 import sys
 from util import async_get_request
+from util import format_route
 from config_loader import config
+from os import path
 
 
 class TerminatedByUserError(Exception):
     pass
+
+
+PROGRESS_ROUTE = config["cv_api"]["route"]["object_detection"]["feedback"]["progress"]
+TERMINATION_INFORMATION_ROUTE = config["cv_api"]["route"]["object_detection"]["feedback"]["termination_information"]
+WEB_API_ADRESS = "http://" + config["web_api"]["host"]+":"+str(config["web_api"]["port"])
 
 
 class ObjectDetection:
@@ -20,20 +27,19 @@ class ObjectDetection:
         self._operation_id = operation_id
         self._terminate_asap = False
         self._video_id = video_id
-        self._progress_endpoint = "http://" + config["web-api"]["host"]+":"+str(config["web-api"]["port"]) + config["cv-api"]["endpoint"]["object-detection"]["feedback"]["progress-endpoint"]
-        self._termination_information_endpoint = "http://" + config["web-api"]["host"]+":"+str(config["web-api"]["port"]) + \
-            config["cv-api"]["endpoint"]["object-detection"]["feedback"]["termination-information-endpoint"]
         self._video_dir = config["storage"]["video"]
 
     def _update_progress(self, progress):
         db.update_one("videos", {"$set": {"object_detection_progress": progress}}, {"_id": ObjectId(self._video_id)})
 
-        if not self._progress_endpoint is "":
-            async_get_request(self._progress_endpoint + "/" + self._video_id + "/" + str(progress))
+        if not PROGRESS_ROUTE is "":
+            fill = {"operation_id": self._operation_id, "progress": progress}
+            async_get_request(WEB_API_ADRESS + format_route(PROGRESS_ROUTE, fill))
 
     def _inform_termination(self, status):
-        if not self._termination_information_endpoint is "":
-            async_get_request(self._termination_information_endpoint + "/" + self._operation_id + "/" + status)
+        if not TERMINATION_INFORMATION_ROUTE is "":
+            fill = {"operation_id": self._operation_id, "status": status}
+            async_get_request(WEB_API_ADRESS + format_route(TERMINATION_INFORMATION_ROUTE, fill))
 
     def _update_status(self, status):
         db.update_one("videos", {"$set": {"object_detection_status": status}}, {"_id": ObjectId(self._video_id)})
@@ -47,9 +53,8 @@ class ObjectDetection:
             event_emmiter.on("TERMINATE_OBJECT_DETECTION", termination_handler)
 
             video = db.find_one("videos", {"_id": ObjectId(self._video_id)})
-            path = self._video_dir + "/" + video["name"]
-
-            cap = cv2.VideoCapture(path)
+            video_path = path.join(self._video_dir, video["filename"])
+            cap = cv2.VideoCapture(video_path)
 
             frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
 

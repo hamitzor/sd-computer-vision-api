@@ -7,6 +7,7 @@ import uuid
 from config_loader import config
 from db import db
 from bson.objectid import ObjectId
+import re
 
 
 def async_get_request(url):
@@ -18,7 +19,7 @@ def async_get_request(url):
 def video_metadata(video_id):
 
     video = db.find_one("videos", {"_id": ObjectId(video_id)})
-    video_path = config["storage"]["video"] + "/" + video["name"]
+    video_path = path.join(config["storage"]["video"], video["filename"])
 
     thumbnail_dir = config["storage"]["thumbnail"]
 
@@ -35,7 +36,7 @@ def video_metadata(video_id):
     res, frame = cap.read()
     random = str(uuid.uuid4())
     thumbnail_name = random + ".jpg"
-    thumbnail_path = thumbnail_dir + "/"+thumbnail_name
+    thumbnail_path = path.join(thumbnail_dir, thumbnail_name)
     cv2.imwrite(thumbnail_path, frame)
     cap.release()
 
@@ -52,3 +53,18 @@ def video_metadata(video_id):
         thumbnail=thumbnail_name)
 
     return data
+
+
+def format_route(literal, mapping, delimiters={"left": "<", "right": ">"}):
+    pieces = literal.split("/")
+    pieces = pieces[1:]
+    arg_pattern = re.compile("^"+delimiters["left"]+".+"+delimiters["right"]+"$")
+
+    for piece in pieces:
+        if arg_pattern.match(piece):
+            arg_name = piece[1:-1]
+            if arg_name in mapping:
+                val = mapping[arg_name]
+                literal = literal.replace(piece, str(val))
+
+    return literal

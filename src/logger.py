@@ -1,6 +1,11 @@
 from db import db
 from datetime import datetime
 from sys import stderr
+from codes_loader import codes
+
+
+ERROR_TYPE = codes["log_type"]["ERROR"]
+INFO_TYPE = codes["log_type"]["INFO"]
 
 
 def _now():
@@ -12,23 +17,23 @@ def _log(message, type):
 
 
 def log_error(message):
-    _log(message, "ERROR")
+    _log(message, ERROR_TYPE)
 
 
 def log_info(message):
-    _log(message, "INFO")
+    _log(message, INFO_TYPE)
 
 
 def _console_log(message, type):
-    if type == "ERROR":
-        print("\033[91m"+str(_now())+" -- ERROR -- "+message, file=stderr)
+    if type == ERROR_TYPE:
+        print("\033[91m"+str(_now())+" -- "+ERROR_TYPE+" -- "+message, file=stderr)
     else:
-        print(str(_now())+" -- INFO -- "+message)
+        print(str(_now())+" -- "+INFO_TYPE+" -- "+message)
 
 
 def console_log_error(message):
-    _console_log(message, "ERROR")
+    _console_log(message, ERROR_TYPE)
 
 
 def console_log_info(message):
-    _console_log(message, "INFO")
+    _console_log(message, INFO_TYPE)
