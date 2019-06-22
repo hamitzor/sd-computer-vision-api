@@ -7,50 +7,46 @@ from threading import Thread
 from logger import *
 from event_emmiter import event_emmiter
 import sys
-from util import async_get_request
-from util import format_route
+from util import *
 from config_loader import config
 from os import path
 
 
-class TerminatedByUserError(Exception):
+class CanceledByUserError(Exception):
     pass
 
 
-PROGRESS_ROUTE = config["cv_api"]["route"]["object_detection"]["feedback"]["progress"]
-TERMINATION_INFORMATION_ROUTE = config["cv_api"]["route"]["object_detection"]["feedback"]["termination_information"]
-WEB_API_ADRESS = "http://" + config["web_api"]["host"]+":"+str(config["web_api"]["port"])
+FEEDBACK_ROUTES = config["web_api"]["route"]["cv_feedback"]
+FEEDBACK_SUB_ROUTE = FEEDBACK_ROUTES["sub_route"]
+PROGRESS_ROUTE = FEEDBACK_SUB_ROUTE + FEEDBACK_ROUTES["object_detection_progress"]
+STATUS_ROUTE = FEEDBACK_SUB_ROUTE + FEEDBACK_ROUTES["object_detection_status"]
 
 
 class ObjectDetection:
-    def __init__(self, operation_id, video_id):
-        self._operation_id = operation_id
-        self._terminate_asap = False
+    def __init__(self, video_id):
+        self._cancel_asap = False
         self._video_id = video_id
-        self._video_dir = config["storage"]["video"]
+        self._video_dir = config["storage"]["videos"]
 
     def _update_progress(self, progress):
-        db.update_one("videos", {"$set": {"object_detection_progress": progress}}, {"_id": ObjectId(self._video_id)})
-
         if not PROGRESS_ROUTE is "":
-            fill = {"operation_id": self._operation_id, "progress": progress}
-            async_get_request(WEB_API_ADRESS + format_route(PROGRESS_ROUTE, fill))
-
-    def _inform_termination(self, status):
-        if not TERMINATION_INFORMATION_ROUTE is "":
-            fill = {"operation_id": self._operation_id, "status": status}
-            async_get_request(WEB_API_ADRESS + format_route(TERMINATION_INFORMATION_ROUTE, fill))
+            fill = {"video_id": self._video_id, "progress": progress}
+            async_get_request(web_api_url(format_route(PROGRESS_ROUTE, fill)))
 
     def _update_status(self, status):
-        db.update_one("videos", {"$set": {"object_detection_status": status}}, {"_id": ObjectId(self._video_id)})
+        if not STATUS_ROUTE is "":
+            fill = {"video_id": self._video_id, "status": status}
+            async_get_request(web_api_url(format_route(STATUS_ROUTE, fill)))
 
     def detect(self):
         try:
-            def termination_handler(data):
-                if data["operation_id"] == self._operation_id:
-                    self._terminate_asap = True
+            self._update_status(CV_STATUS_STARTED)
 
-            event_emmiter.on("TERMINATE_OBJECT_DETECTION", termination_handler)
+            def cancellation_handler(data):
+                if data["video_id"] == self._video_id:
+                    self._cancel_asap = True
+
+            event_emmiter.on(OBJECT_DETECTION_EVENT_CANCEL, cancellation_handler)
 
             video = db.find_one("videos", {"_id": ObjectId(self._video_id)})
             video_path = path.join(self._video_dir, video["filename"])
@@ -63,8 +59,8 @@ class ObjectDetection:
             old_percentage = 0
 
             while(cap.isOpened()):
-                if self._terminate_asap:
-                    raise TerminatedByUserError()
+                if self._cancel_asap:
+                    raise CanceledByUserError()
 
                 ret, frame = cap.read()
 
@@ -93,14 +89,13 @@ class ObjectDetection:
                     db.insert_many("detected_objects", detected_objects)
 
             cap.release()
-            self._update_status("COMPLETED")
+            self._update_status(CV_STATUS_COMPLETED)
             self._update_progress(100)
-        except TerminatedByUserError:
-            self._inform_termination("OK")
+        except CanceledByUserError:
+            self._update_status(CV_STATUS_CANCELED)
             db.delete_many("detected_objects", {"video_id": ObjectId(self._video_id)})
-            self._update_status("INTERRUPTED")
-            log_error("Operation was terminated by user.")
+            log_error("Object detection was canceled by user.")
         except:
             db.delete_many("detected_objects", {"video_id": ObjectId(self._video_id)})
-            self._update_status("ERROR")
+            self._update_status(CV_STATUS_FAILED)
             log_error(traceback.format_exc())

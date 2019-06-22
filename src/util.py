@@ -8,10 +8,44 @@ from config_loader import config
 from db import db
 from bson.objectid import ObjectId
 import re
+from logger import *
+import traceback
+from codes_loader import codes
+
+
+WEB_API_ADRESS = "http://" + config["web_api"]["host"]+":"+str(config["web_api"]["port"])
+CV_API_ADDRESS = "http://" + config["cv_api"]["host"]+":"+str(config["cv_api"]["port"])
+
+CV_STATUSES = codes["cv_status"]
+CV_STATUS_NOT_STARTED = CV_STATUSES["NOT_STARTED"]
+CV_STATUS_STARTED = CV_STATUSES["STARTED"]
+CV_STATUS_CANCELED = CV_STATUSES["CANCELED"]
+CV_STATUS_FAILED = CV_STATUSES["FAILED"]
+CV_STATUS_COMPLETED = CV_STATUSES["COMPLETED"]
+
+WEB_STATUSES = codes["web_status"]
+WEB_STATUS_OK = WEB_STATUSES["OK"]
+WEB_STATUS_INTERNAL_SERVER_ERROR = WEB_STATUSES["INTERNAL_SERVER_ERROR"]
+
+OBJECT_DETECTION_EVENT_CANCEL = "OBJECT_DETECTION_EVENT_CANCEL"
+
+
+def cv_api_url(route):
+    return CV_API_ADDRESS + route
+
+
+def web_api_url(route):
+    return WEB_API_ADRESS + route
 
 
 def async_get_request(url):
-    thread = Thread(target=lambda: urlopen(url))
+    def request(req_url):
+        try:
+            urlopen(req_url)
+        except:
+            log_error(traceback.format_exc())
+
+    thread = Thread(target=request, args=(url,))
     thread.start()
     return thread
 
@@ -19,9 +53,9 @@ def async_get_request(url):
 def video_metadata(video_id):
 
     video = db.find_one("videos", {"_id": ObjectId(video_id)})
-    video_path = path.join(config["storage"]["video"], video["filename"])
+    video_path = path.join(config["storage"]["videos"], video["filename"])
 
-    thumbnail_dir = config["storage"]["thumbnail"]
+    thumbnail_dir = config["storage"]["thumbnails"]
 
     if not path.isfile(video_path):
         raise Exception("%s is not a file" % video_path)
