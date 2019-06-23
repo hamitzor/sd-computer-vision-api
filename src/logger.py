@@ -1,4 +1,4 @@
-from db import db
+from mongo import db
 from datetime import datetime
 from sys import stderr
 from codes_loader import codes
@@ -13,7 +13,7 @@ def _now():
 
 
 def _log(message, type):
-    db.insert_one("cv_logs", {"date": _now(), "type": type, "message": message})
+    db["cv_logs"].insert_one({"date": _now(), "type": type, "message": message})
 
 
 def log_error(message):

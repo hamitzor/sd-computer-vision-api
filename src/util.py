@@ -5,7 +5,7 @@ from os import path
 import json
 import uuid
 from config_loader import config
-from db import db
+from mongo import db
 from bson.objectid import ObjectId
 import re
 from logger import *
@@ -52,7 +52,7 @@ def async_get_request(url):
 
 def video_metadata(video_id):
 
-    video = db.find_one("videos", {"_id": ObjectId(video_id)})
+    video = db["videos"].find_one({"_id": ObjectId(video_id)})
     video_path = path.join(config["storage"]["videos"], video["filename"])
 
     thumbnail_dir = config["storage"]["thumbnails"]

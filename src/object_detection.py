@@ -1,7 +1,7 @@
 import cv2
 import traceback
 import darknet
-from db import db
+from mongo import db
 from bson.objectid import ObjectId
 from threading import Thread
 from logger import *
@@ -48,7 +48,7 @@ class ObjectDetection:
 
             event_emmiter.on(OBJECT_DETECTION_EVENT_CANCEL, cancellation_handler)
 
-            video = db.find_one("videos", {"_id": ObjectId(self._video_id)})
+            video = db["videos"].find_one({"_id": ObjectId(self._video_id)})
             video_path = path.join(self._video_dir, video["filename"])
             cap = cv2.VideoCapture(video_path)
 
@@ -77,25 +77,22 @@ class ObjectDetection:
                                      "x":o[2][0],
                                      "y":o[2][1],
                                      "w":o[2][2],
-                                     "h":o[2][3],
-                                     "frame_no":int(frame_no),
-                                     "video_id":ObjectId(self._video_id)} for o in result]
+                                     "h":o[2][3]} for o in result]
 
                 if old_percentage != percentage:
                     self._update_progress(percentage)
                 old_percentage = percentage
-
                 if len(detected_objects) > 0:
-                    db.insert_many("detected_objects", detected_objects)
-
+                    inserted_ids = db["detected_objects"].insert_many(detected_objects).inserted_ids
+                    db["videos"].update_one({"_id": ObjectId(self._video_id)}, {"$push": {"object_detection.detections."+str(int(frame_no)): {"$each": inserted_ids}}}, upsert=True)
             cap.release()
             self._update_status(CV_STATUS_COMPLETED)
             self._update_progress(100)
         except CanceledByUserError:
             self._update_status(CV_STATUS_CANCELED)
-            db.delete_many("detected_objects", {"video_id": ObjectId(self._video_id)})
+            db["detected_objects"].delete_many({"video_id": ObjectId(self._video_id)})
             log_error("Object detection was canceled by user.")
         except:
-            db.delete_many("detected_objects", {"video_id": ObjectId(self._video_id)})
+            db["detected_objects"].delete_many({"video_id": ObjectId(self._video_id)})
             self._update_status(CV_STATUS_FAILED)
             log_error(traceback.format_exc())
