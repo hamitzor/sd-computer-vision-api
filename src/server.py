@@ -10,7 +10,9 @@ from os import path
 from util import *
 from logger import *
 import traceback
-from codes_loader import codes
+from config_loader import config
+
+codes = config["codes"]
 
 DIR = path.dirname(path.abspath(path.realpath(__file__)))
 PUBLIC_DIR = path.abspath(path.join(DIR, "../public"))

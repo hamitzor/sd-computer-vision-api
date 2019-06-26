@@ -1,7 +1,9 @@
 from mongo import db
 from datetime import datetime
 from sys import stderr
-from codes_loader import codes
+from config_loader import config
+
+codes = config["codes"]
 
 
 ERROR_TYPE = codes["log_type"]["ERROR"]

@@ -10,11 +10,13 @@ from bson.objectid import ObjectId
 import re
 from logger import *
 import traceback
-from codes_loader import codes
+from config_loader import config
+
+codes = config["codes"]
 
 
-WEB_API_ADRESS = "http://" + config["web_api"]["host"]+":"+str(config["web_api"]["port"])
-CV_API_ADDRESS = "http://" + config["cv_api"]["host"]+":"+str(config["cv_api"]["port"])
+WEB_API_ADRESS = "http://" + config["web_api"]["hostname"]+":"+str(config["web_api"]["port"])
+CV_API_ADDRESS = "http://" + config["cv_api"]["hostname"]+":"+str(config["cv_api"]["port"])
 
 CV_STATUSES = codes["cv_status"]
 CV_STATUS_NOT_STARTED = CV_STATUSES["NOT_STARTED"]

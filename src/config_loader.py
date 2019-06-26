@@ -1,11 +1,12 @@
 import json
+from urllib.request import urlopen
 import argparse
 
 argparse = argparse.ArgumentParser()
-argparse.add_argument("-c", "--config", required=True, help="Configuration file path")
+argparse.add_argument("-c", "--config-endpoint", required=True, help="Configuration endpoint")
 
 args = argparse.parse_args()
 
+config_endpoint = args.config_endpoint
 
-with open(args.config, "r") as f:
-    config = json.load(f)
+config = (json.loads(urlopen(config_endpoint).read().decode("utf-8")))["payload"]
